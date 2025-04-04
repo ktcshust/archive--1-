@@ -200,18 +200,6 @@ def compute_cider(refs, hyps):
                                           {str(i): [h] for i, h in enumerate(hyps)})
     return score
 
-def compute_rouge(refs, hyps):
-    rouge_scorer = Rouge()
-    score, _ = rouge_scorer.compute_score({str(i): [r] for i, r in enumerate(refs)},
-                                          {str(i): [h] for i, h in enumerate(hyps)})
-    return score
-
-def compute_spice(refs, hyps):
-    spice_scorer = Spice()
-    score, _ = spice_scorer.compute_score({str(i): [r] for i, r in enumerate(refs)},
-                                          {str(i): [h] for i, h in enumerate(hyps)})
-    return score
-
 def compute_bertscore(refs, hyps, lang="en"):
     P, R, F1 = bert_score_score(hyps, refs, lang=lang, verbose=False)
     return torch.mean(F1).item()
@@ -242,10 +230,8 @@ def evaluate_model(model, dataloader, tokenizer, device):
     avg_time = total_time / count if count > 0 else 0.0
     bleu1, bleu2, bleu3, bleu4 = compute_bleu(refs, hyps)
     cider = compute_cider(refs, hyps)
-    rouge = compute_rouge(refs, hyps)
-    spice = compute_spice(refs, hyps)
     bertscore = compute_bertscore(refs, hyps, lang="en")
-    return bleu1, bleu2, bleu3, bleu4, cider, rouge, spice, bertscore, avg_time
+    return bleu1, bleu2, bleu3, bleu4, cider, bertscore, avg_time
 
 ############################################
 # 8. Main Training & Evaluation
@@ -298,15 +284,14 @@ def main():
         print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
     
     # Evaluation
-    bleu1, bleu2, bleu3, bleu4, cider, rouge, spice, bertscore, avg_inference_time = evaluate_model(model, test_loader, tokenizer, device)
+    bleu1, bleu2, bleu3, bleu4, cider, rouge, avg_inference_time = evaluate_model(model, test_loader, tokenizer, device)
     print("Evaluation Metrics on Test Set:")
     print(f"BLEU-1: {bleu1:.4f}")
     print(f"BLEU-2: {bleu2:.4f}")
     print(f"BLEU-3: {bleu3:.4f}")
     print(f"BLEU-4: {bleu4:.4f}")
     print(f"CIDEr: {cider:.4f}")
-    print(f"ROUGE-L: {rouge:.4f}")
-    print(f"SPICE: {spice:.4f}")
+
     print(f"BERTScore F1: {bertscore:.4f}")
     print(f"Avg Inference Time per Image: {avg_inference_time:.4f} seconds")
     
