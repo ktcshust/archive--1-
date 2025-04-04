@@ -12,8 +12,8 @@ import torchvision.models as models
 from torch.utils.data import Dataset, DataLoader, random_split
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from pycocoevalcap.cider.cider import Cider
-from pycocoevalcap.rouge.rouge import Rouge
-from pycocoevalcap.spice.spice import Spice
+#from pycocoevalcap.rouge.rouge import Rouge
+#from pycocoevalcap.spice.spice import Spice
 from bert_score import score as bert_score_score
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
