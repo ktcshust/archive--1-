@@ -301,4 +301,18 @@ def main():
     bleu1, bleu2, bleu3, bleu4, cider, rouge, spice, bertscore, avg_inference_time = evaluate_model(model, test_loader, tokenizer, device)
     print("Evaluation Metrics on Test Set:")
     print(f"BLEU-1: {bleu1:.4f}")
-    print(f"BLEU
+    print(f"BLEU-2: {bleu2:.4f}")
+    print(f"BLEU-3: {bleu3:.4f}")
+    print(f"BLEU-4: {bleu4:.4f}")
+    print(f"CIDEr: {cider:.4f}")
+    print(f"ROUGE-L: {rouge:.4f}")
+    print(f"SPICE: {spice:.4f}")
+    print(f"BERTScore F1: {bertscore:.4f}")
+    print(f"Avg Inference Time per Image: {avg_inference_time:.4f} seconds")
+    
+    # Lưu model
+    torch.save(model.state_dict(), "visual_captioning_t5_hash.pth")
+
+if __name__ == '__main__':
+    main()
+
