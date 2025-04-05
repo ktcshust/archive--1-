@@ -17,7 +17,6 @@ from pycocoevalcap.rouge.rouge import Rouge
 from pycocoevalcap.spice.spice import Spice
 from bert_score import score as bert_score_score
 
-# Nếu cần, tải nltk packages:
 nltk.download('punkt')
 
 ######################
@@ -50,8 +49,6 @@ class Vocabulary:
     def numericalize(self, text):
         tokenized_text = self.tokenizer_eng(text)
         return [self.stoi.get(word, self.stoi["<UNK>"]) for word in tokenized_text]
-
-# Dataset Flickr8k – file CSV với 2 cột: image, caption
 class Flickr8kDataset(Dataset):
     def __init__(self, root_dir, captions_file, vocab, transform=None):
         """
@@ -114,10 +111,9 @@ class FullMemoryTransformer(nn.Module):
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
     def forward(self, features):
-        # features: (batch, num_pixels, encoder_dim)
-        features = features.permute(1, 0, 2)  # (num_pixels, batch, encoder_dim)
-        transformed = self.transformer(features)  # (num_pixels, batch, encoder_dim)
-        transformed = transformed.permute(1, 0, 2)  # (batch, num_pixels, encoder_dim)
+        features = features.permute(1, 0, 2)  
+        transformed = self.transformer(features)  
+        transformed = transformed.permute(1, 0, 2)  
         return transformed
 
 class EncoderCNN(nn.Module):
@@ -125,23 +121,20 @@ class EncoderCNN(nn.Module):
         super(EncoderCNN, self).__init__()
         self.enc_image_size = encoded_image_size
         resnet = models.resnet50(pretrained=True)
-        # Loại bỏ fully-connected và avgpool
         modules = list(resnet.children())[:-2]
         self.resnet = nn.Sequential(*modules)
         self.adaptive_pool = nn.AdaptiveAvgPool2d((encoded_image_size, encoded_image_size))
-        # Khởi tạo Full-Memory Transformer
         self.full_memory_transformer = FullMemoryTransformer(encoder_dim=2048, nhead=8, num_layers=2)
         
     def forward(self, images):
-        features = self.resnet(images)  # (batch, 2048, feat_size, feat_size)
-        features = self.adaptive_pool(features)  # (batch, 2048, enc_image_size, enc_image_size)
-        # Permute thành (batch, H, W, 2048)
+        features = self.resnet(images)  
+        features = self.adaptive_pool(features)  
         features = features.permute(0, 2, 3, 1)
         batch_size, H, W, encoder_dim = features.size()
-        features_flat = features.view(batch_size, H * W, encoder_dim)  # (batch, num_pixels, encoder_dim)
+        features_flat = features.view(batch_size, H * W, encoder_dim)  
         transformer_features = self.full_memory_transformer(features_flat)
-        combined_features = transformer_features + features_flat  # Cross-modal Skip-Connections
-        return combined_features  # (batch, num_pixels, encoder_dim)
+        combined_features = transformer_features + features_flat  
+        return combined_features  
 
 ######################
 # 3. Các module phụ: Attention, Hash Memory
@@ -156,12 +149,12 @@ class Attention(nn.Module):
         self.softmax = nn.Softmax(dim=1)
         
     def forward(self, encoder_out, decoder_hidden):
-        att1 = self.encoder_att(encoder_out)          # (batch, num_pixels, attention_dim)
-        att2 = self.decoder_att(decoder_hidden)         # (batch, attention_dim)
-        att2 = att2.unsqueeze(1)                        # (batch, 1, attention_dim)
-        att = self.full_att(self.relu(att1 + att2))       # (batch, num_pixels, 1)
-        att = att.squeeze(2)                            # (batch, num_pixels)
-        alpha = self.softmax(att)                       # (batch, num_pixels)
+        att1 = self.encoder_att(encoder_out)          
+        att2 = self.decoder_att(decoder_hidden)         
+        att2 = att2.unsqueeze(1)                        
+        att = self.full_att(self.relu(att1 + att2))       
+        att = att.squeeze(2)                            
+        alpha = self.softmax(att)                       
         attention_weighted_encoding = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)
         return attention_weighted_encoding, alpha
 
@@ -171,7 +164,7 @@ class HashMemory(nn.Module):
         self.memory_bank = nn.Parameter(torch.randn(memory_size, hidden_dim))
         
     def forward(self, x):
-        similarity = torch.matmul(x, self.memory_bank.t())  # (batch, memory_size)
+        similarity = torch.matmul(x, self.memory_bank.t())  
         att_weights = torch.softmax(similarity, dim=1)
         memory_out = torch.matmul(att_weights, self.memory_bank)
         out = x + memory_out
@@ -198,7 +191,7 @@ class DecoderRNN(nn.Module):
         self.hash_memory = HashMemory(decoder_dim)
         self.init_h = nn.Linear(encoder_dim, decoder_dim)
         self.init_c = nn.Linear(encoder_dim, decoder_dim)
-        self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # gating scalar
+        self.f_beta = nn.Linear(decoder_dim, encoder_dim)  
         self.sigmoid = nn.Sigmoid()
         self.fc = nn.Linear(decoder_dim, vocab_size)
         
@@ -213,7 +206,7 @@ class DecoderRNN(nn.Module):
         encoder_dim = encoder_out.size(-1)
         num_pixels = encoder_out.size(1)
         
-        embeddings = self.embedding(encoded_captions)  # (batch, max_caption_length, embed_dim)
+        embeddings = self.embedding(encoded_captions)  
         h, c = self.init_hidden_state(encoder_out)
         decode_lengths = [l - 1 for l in caption_lengths]
         
@@ -235,7 +228,6 @@ class DecoderRNN(nn.Module):
         return predictions, decode_lengths, alphas
 
     def generate_caption(self, encoder_out, vocab, max_len=20):
-        # Sinh caption cho 1 ảnh (batch_size=1)
         assert encoder_out.size(0) == 1, "Chỉ hỗ trợ sinh caption từng ảnh một."
         h, c = self.init_hidden_state(encoder_out)
         word = torch.tensor([vocab.stoi["<START>"]]).to(encoder_out.device)
@@ -330,8 +322,8 @@ def evaluate_model(encoder, decoder, dataloader, vocab, device):
 ######################
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    root_dir = "archive (3)/Images"      # đường dẫn folder chứa ảnh
-    captions_file = "archive (3)/captions.txt"    # file CSV với 2 cột: image, caption
+    root_dir = "archive (3)/Images"      #thay bằng đường dẫn của bạn
+    captions_file = "archive (3)/captions.txt"   #thay bằng đường dẫn của bạn 
     freq_threshold = 5
     embed_dim = 256
     attention_dim = 256
@@ -347,7 +339,6 @@ def main():
         transforms.Normalize((0.485,0.456,0.406), (0.229,0.224,0.225))
     ])
 
-    # Xây dựng từ vựng
     all_captions = []
     with open(captions_file, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -403,7 +394,6 @@ def main():
     cider_score = compute_cider(refs_dict, hyps_dict)
     #rouge_score = compute_rouge(refs_dict, hyps_dict)
     #spice_score = compute_spice(refs_dict, hyps_dict)
-    # Lấy danh sách các câu để tính BERTScore
     refs_list = [refs_dict[k][0] for k in refs_dict.keys()]
     hyps_list = [hyps_dict[k][0] for k in hyps_dict.keys()]
     bertscore_f1 = compute_bertscore(refs_list, hyps_list, lang="en")
